@@ -1,0 +1,189 @@
+/* Krinsky-Robb simulation for non-linear combinations of coefficients */
+/* In models with random coefficients */
+
+
+* First, estimate model
+
+* Save fixed coefficients in Bf
+matrix Bf=e(b)
+
+* Save mean of random coefficients in Br
+matrix Br=e(rand)
+
+* Save covariance matrix in V1
+matrix V1=e(V)
+
+* Save correlation structure of random coefficients in Ve
+matrix Ve=r(b)'
+
+* CHolesky decomposition of correlation structure of random coefficients			
+matrix cholVf=cholesky(Vf)
+
+* NUmber of random coefficients
+local rand=e(krnd)
+
+* Number of fixed coefficients
+local fix=rowsof(Bf)
+
+matrix zero=J(1,`rand',0)
+
+/* Example of nonlinear combination - WTP */
+/* And interaction low/med/high */
+
+* Iterations
+local iter=1000
+matrix WTP=J(`iter',`rand',0)
+matrix WTP_low=J(`iter',`rand',0)
+matrix WTP_med=J(`iter',`rand',0)
+matrix WTP_high=J(`iter',`rand',0)
+
+forvalues I=1/`iter' {
+	*local I=1
+	di "Multiple Years iteration " `I' " at $S_DATE $S_TIME"
+	qui {
+				
+		* Sample Betas		
+		mat iid_err=J(`fix',1,0)
+		forvalues i=1/`fix' {
+			mat iid_err[`i',1]=rnormal()
+		}
+	
+		* Generate draws from vector beta
+		mat beta_draw=Bf
+		mat param_err=cholVf * iid_err
+		forvalues i=1/`fix' {
+			mat beta_draw[`i',1]=beta_draw[`i',1]+param_err[`i',1]
+		}	
+		
+		* Generate individual random coefficients v_i,u_ij, means in Br		
+    * SAy 4 random coefficients mu2-mu5
+		drawnorm mu2 mu3 mu4 mu5, means(Br) cov(Vr) double cstorage(lower)
+		
+		* Generate n_ij as fixed component plus random component
+		gen n2=beta_draw[10,1]+ beta_draw[2,1]*py_hsmed_2+beta_draw[6,1]*py_hshigh_2+mu2 
+		gen n3=beta_draw[11,1]+ beta_draw[3,1]*py_hsmed_3+beta_draw[7,1]*py_hshigh_3+mu3 
+		gen n4=beta_draw[12,1]+ beta_draw[4,1]*py_hsmed_4+beta_draw[8,1]*py_hshigh_4+mu4 
+		gen n5=beta_draw[13,1]+ beta_draw[5,1]*py_hsmed_5+beta_draw[9,1]*py_hshigh_5+mu5 
+		
+		* Generate WTP_ij=n_ij/-d
+		gen wtp2=n2/-beta_draw[1,1]
+		gen wtp3=n3/-beta_draw[1,1]
+		gen wtp4=n4/-beta_draw[1,1]
+		gen wtp5=n5/-beta_draw[1,1]
+		
+		*Average
+		forvalues i=2/5 {
+			sum wtp`i'
+			mat WTP[`I',`i'-1]=r(mean)			
+		}
+		drop n2 n3 n4 n5 wtp2 wtp3 wtp4 wtp5
+		
+		* Generate n_ij|low 
+		gen n2=beta_draw[10,1]+mu2 if Network_No==2 & py_hslow_2==1 
+		gen n3=beta_draw[11,1]+mu3 if Network_No==3 & py_hslow_3==1
+		gen n4=beta_draw[12,1]+mu4 if Network_No==4 & py_hslow_4==1
+		gen n5=beta_draw[13,1]+mu5 if Network_No==5 & py_hslow_5==1
+		
+		* Generate WTP_ij=n_ij/-d
+		gen wtp2=n2/-beta_draw[1,1]
+		gen wtp3=n3/-beta_draw[1,1]
+		gen wtp4=n4/-beta_draw[1,1]
+		gen wtp5=n5/-beta_draw[1,1]
+		
+		*Average
+		forvalues i=2/5 {
+			sum wtp`i'
+			mat WTP_low[`I',`i'-1]=r(mean)			
+		}
+		drop n2 n3 n4 n5 wtp2 wtp3 wtp4 wtp5
+		
+		* Generate n_ij|medium 
+		gen n2=beta_draw[10,1]+beta_draw[2,1]+mu2 if Network_No==2 & py_hsmed_2==1 
+		gen n3=beta_draw[11,1]+beta_draw[3,1]+mu3 if Network_No==3 & py_hsmed_3==1 
+		gen n4=beta_draw[12,1]+beta_draw[4,1]+mu4 if Network_No==4 & py_hsmed_4==1 
+		gen n5=beta_draw[13,1]+beta_draw[5,1]+mu5 if Network_No==5 & py_hsmed_5==1 
+		
+		* Generate WTP_ij=n_ij/-d
+		gen wtp2=n2/-beta_draw[1,1]
+		gen wtp3=n3/-beta_draw[1,1]
+		gen wtp4=n4/-beta_draw[1,1]
+		gen wtp5=n5/-beta_draw[1,1]
+		
+		*Average
+		forvalues i=2/5 {
+			sum wtp`i'
+			mat WTP_med[`I',`i'-1]=r(mean)			
+		}
+		drop n2 n3 n4 n5 wtp2 wtp3 wtp4 wtp5
+		
+		* Generate n_ij|high 
+		gen n2=beta_draw[10,1]+beta_draw[6,1]+mu2 if Network_No==2 & py_hshigh_2==1 
+		gen n3=beta_draw[11,1]+beta_draw[7,1]+mu3 if Network_No==3 & py_hshigh_3==1
+		gen n4=beta_draw[12,1]+beta_draw[8,1]+mu4 if Network_No==4 & py_hshigh_4==1
+		gen n5=beta_draw[13,1]+beta_draw[9,1]+mu5 if Network_No==5 & py_hshigh_5==1
+		
+		* Generate WTP_ij=n_ij/-d
+		gen wtp2=n2/-beta_draw[1,1]
+		gen wtp3=n3/-beta_draw[1,1]
+		gen wtp4=n4/-beta_draw[1,1]
+		gen wtp5=n5/-beta_draw[1,1]
+		
+		*Average
+		forvalues i=2/5 {
+			sum wtp`i'
+			mat WTP_high[`I',`i'-1]=r(mean)			
+		}
+		drop n2 n3 n4 n5 wtp2 wtp3 wtp4 wtp5
+		drop mu2 mu3 mu4 mu5
+	}
+}
+		
+mata: st_matrix("wtp_mean", mean(st_matrix("WTP")))
+mata: st_matrix("wtp_median", mm_quantile(st_matrix("WTP"),1,0.5))
+mata: st_matrix("wtp_lb", mm_quantile(st_matrix("WTP"),1,0.025))
+mata: st_matrix("wtp_ub", mm_quantile(st_matrix("WTP"),1,0.975))
+mata: st_matrix("wtp_covar", variance(st_matrix("WTP")))
+mata: st_matrix("wtp_stdev", diagonal(sqrt(variance(st_matrix("WTP")))))
+matrix wtp_covar2=wtp_covar[1..4,1..4]
+matrix wtp_mean2=wtp_mean[1,1..4]
+matrix Ew=wtp_mean2*F
+matrix Vw=F'*wtp_covar2*F
+
+matrix wtp_all=wtp_mean\wtp_stdev'
+matrix wtp_q=wtp_median\wtp_lb\wtp_ub
+matrix wtp_w=Ew\sqrt(Vw[1,1])
+
+
+
+foreach z in low med high {
+
+	mata: st_matrix("wtp_`z'_mean", mean(st_matrix("WTP_`z'")))
+	mata: st_matrix("wtp_`z'_covar", variance(st_matrix("WTP_`z'")))
+	mata: st_matrix("wtp_`z'_median", mm_quantile(st_matrix("WTP_`z'"),1,0.5))
+	mata: st_matrix("wtp_`z'_lb", mm_quantile(st_matrix("WTP_`z'"),1,0.025))
+	mata: st_matrix("wtp_`z'_ub", mm_quantile(st_matrix("WTP_`z'"),1,0.975))
+	mata: st_matrix("wtp_`z'_stdev", diagonal(sqrt(variance(st_matrix("WTP_`z'")))))
+	matrix wtp_`z'_covar2=wtp_`z'_covar[1..4,1..4]
+	matrix wtp_`z'_mean2=wtp_`z'_mean[1,1..4]
+	matrix Ew_`z'=wtp_`z'_mean2*F
+	matrix Vw_`z'=F'*wtp_`z'_covar2*F
+
+	matrix wtp_`z'_all=wtp_`z'_mean\wtp_`z'_stdev'
+	matrix wtp_`z'_q=wtp_`z'_median\wtp_`z'_lb\wtp_`z'_ub
+	matrix wtp_`z'_w=Ew_`z'\sqrt(Vw_`z'[1,1])
+}
+
+* Overall WTP
+matrix list wtp_all
+matrix list wtp_q
+matrix list wtp_low_all
+matrix list wtp_low_q
+matrix list wtp_med_all
+matrix list wtp_med_q
+matrix list wtp_high_all
+matrix list wtp_high_q
+
+matrix list wtp_w
+matrix list wtp_low_w
+matrix list wtp_med_w
+matrix list wtp_high_w
